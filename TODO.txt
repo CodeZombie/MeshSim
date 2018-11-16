@@ -1,0 +1,18 @@
+Make Entity a base class that others can inheret from.
+    give it base methods like
+        update()
+        draw()
+        isOnPoint(x,y)
+        isColliding(other_)
+        
+
+Simplify the graphics class a bit by using the setStyle method with {style} objects
+
+Get rid of all "createX()" methods. Replace them all with addX(new X())).
+
+
+Go for a more modular approach.
+    Entity will contain:
+        A Shape() object that acts as a bounding box for colliisions
+        A Sprite object, which will be a new class, and
+        the Draw() method can choose to draw it, something else, or not at all.
