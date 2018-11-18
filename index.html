@@ -4,24 +4,24 @@
 	<link rel="stylesheet" href="style/hella.css">
 	<link rel="stylesheet" href="style/style.css">
 	<script type="text/javascript" src="Acid.js"></script>
-	<script type="text/javascript" src="broadcast.js"></script>
-	<script type="text/javascript" src="node.js"></script>
+	<script type="text/javascript" src="MeshSim/broadcast.js"></script>
+	<script type="text/javascript" src="MeshSim/node.js"></script>
 	<script type="text/javascript">
 		function loadResources() { }
-		
+
 		function setupScene() {
 			Acid.Graphics.attachCanvas(document.getElementById("gameCanvas"));
 			Acid.Graphics.getCanvas().width = 900;
 			Acid.Graphics.getCanvas().height = 512;
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
-		
 
-			for( i = 0; i < 256; i++) {
+			for( i = 0; i < 64; i++) {
 				node = new Node(Math.random() * (512+256+128), Math.random() * 512);
+				//node = new Node(Math.random() * 128, Math.random() * 128);
+
 				node.broadcast_radius = 32 + (Math.random() * 32);
 				Acid.EntityManager.addEntity(node);
-
 			}
 		}
 		

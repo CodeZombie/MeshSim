@@ -11,6 +11,7 @@ Acid.Entity = function(x_, y_) {
 	this.spriteIndex;
 	this.sprite;
 	this.boundingBox;
+	this.hovered = false;
 };
 
 Acid.Entity.prototype.setId = function(id_) {
@@ -65,6 +66,10 @@ Acid.Entity.prototype.draw = function() {
 };
 
 Acid.Entity.prototype.update = function() {
+	this.hovered = false;
+	if(this.getBoundingBox().checkPoint(Acid.Mouse.getX(), Acid.Mouse.getY())){
+		this.hovered = true;
+	}
 }
 
 Acid.Entity.prototype.onMouseDown = function() {

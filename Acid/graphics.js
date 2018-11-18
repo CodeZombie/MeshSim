@@ -45,6 +45,14 @@ Acid.Graphics = (function() {
 			canvasContext.clearRect(0, 0, canvas.width, canvas.height);
 		},
 
+		drawOnTop : function() {
+			canvasContext.globalCompositeOperation = 'source-over';
+		},
+
+		drawOnBottom : function() {
+			canvasContext.globalCompositeOperation = 'destination-over';
+		},
+
 		setStyle : function(style_){
 			if(style_.lineWidth != null) {
 				canvasContext.lineWidth = style_.lineWidth;
@@ -116,8 +124,8 @@ Acid.Graphics = (function() {
 			canvasContext.stroke();
 		},
 		
-		drawFilledSquare : function(x_, y_, w_, h_, color_) {
-			canvasContext.fillStyle = color_;
+		drawFilledSquare : function(x_, y_, w_, h_, style_) {
+			Acid.Graphics.setStyle(style_);
 			canvasContext.fillRect(x_*scale, y_*scale, w_*scale, h_*scale);
 		},
 		drawText : function(x_, y_, text_, style_) {
