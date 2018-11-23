@@ -4,18 +4,22 @@ Node = function(x_, y_) {
     Acid.Entity.call(this, x_, y_);
 
     this.objectType = "node"
+
+    this.SHORT_INTERFRAME_SPACE = 9; //1 being the smallest unit of time, in microseconds. 
+    this.MAX_BACKOFF_TIME = 16; //the max amount of time the system will wait as a random backoff.
+    this.DCF_INTERFRAME_SPACE = 16; //the amount of time to be waited during the physical carrier sense right before transmission.
+
     this.radius = 8; //physical radius of the node
     this.broadcast_radius = 64; //the distance this node can broadcast
     this.color = "128, 255, 255"
     this.status = "idle";  //current state of the node                        
     this.substatus = "idle";//substatus of this node.
 
-
-    this.received_broadcast_ids = [];       //the IDs of broadcasts this has received/broadcast
     this.received_frame_ids = [];          //the IDs of packets that were succesfully receivedu
     this.broadcast_being_received = null;   //holds the current broadcast that is being received. null when not receiving anything.
     this.frames_to_be_broadcast = [];      //the frames that we want to broadcast
     this.wait_time = 0;
+    this.tx_counter = 0; //the amount of time it takes between wanting to tx, to actually txing the frame.
 
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
 }
@@ -27,6 +31,9 @@ Node.prototype.receiveBroadcast = function(broadcast_) {
     if(!this.received_frame_ids.includes(broadcast_.frame.id)) { //if we have never seen this frame before
         this.frames_to_be_broadcast.unshift(broadcast_.frame); //rebroadcast it
         this.received_frame_ids.push(broadcast_.frame.id); //mark this frame as "Seen"
+        Researcher.addHop();
+    }else{
+        Researcher.addRedundantHop();
     }
 
     this.broadcast_being_received = null;
@@ -46,6 +53,9 @@ Node.prototype.broadcastFrame = function(frame_) {
     }
 
     Acid.EntityManager.addEntity(broadcast); //add it to the world.
+
+    Researcher.addBroadcastTime(this.tx_counter); //tell the researcher that the transmit was succesful and how long it took.
+    this.tx_counter = 0;
 }
 
 Node.prototype.onCollision = function(other_){
@@ -57,6 +67,9 @@ Node.prototype.onCollision = function(other_){
         if(this.broadcast_being_received != null) { //if there is already a broadcast being received
             if(this.broadcast_being_received.id != other_.id) { //and the broadcast being received is not this one..
                 //collision!
+                if(this.status != "collision") {
+                    Researcher.onCollision(); //only call this once per collision, thus the if statement.
+                }
                 this.status = "collision";
                 this.substatus = "nav_countdown";
                 this.wait_time = other_.duration; //set the nav timer to the last broadcast
@@ -102,12 +115,14 @@ Node.prototype.update = function() {
     }
 
     if(this.status == "broadcasting"){ //if we want to broadcast
+        this.tx_counter++;
+
         switch(this.substatus) {
             case "nav_countdown":
                 this.wait_time--;
                 if(this.wait_time <= 0) {
                     this.substatus = "difs_countdown";
-                    this.wait_time = 8; //difs time = 8
+                    this.wait_time = this.DCF_INTERFRAME_SPACE; //DIFS
                 }
                 break;
 
@@ -115,7 +130,7 @@ Node.prototype.update = function() {
                 this.wait_time--;
                 if(this.wait_time <= 0) {
                     this.substatus = "backoff_countdown";
-                    this.wait_time = 1 + Math.floor(Math.random() *16); //wait a random amount of time
+                    this.wait_time = 1 + Math.floor(Math.random() * this.MAX_BACKOFF_TIME); //wait a non-zero random amount of time
                 }
                 break;
 
@@ -173,5 +188,5 @@ Node.prototype.onMouseDown = function() {
 }
 
 Node.prototype.onMouseMove = function(event_) {
-    console.log(this.received_frame_ids);
+    //console.log(this.received_frame_ids);
 }

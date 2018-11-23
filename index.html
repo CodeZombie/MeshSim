@@ -6,7 +6,46 @@
 	<script type="text/javascript" src="Acid.js"></script>
 	<script type="text/javascript" src="MeshSim/broadcast.js"></script>
 	<script type="text/javascript" src="MeshSim/node.js"></script>
+	<script type="text/javascript" src="MeshSim/batmannode.js"></script>
+
 	<script type="text/javascript">
+		Rsxr = function() {
+			this.collision_count = 0;
+			this.duration = 0; //the amount of time between sending the packet, and the final destination node reciving it.
+
+			this.number_of_hops = 0; //the number of sucesful, non-redundant hops that there have been over the entire network.
+			this.number_of_redundant_hops= 0; //the number of times a node recieves a frame it has already seen.
+
+			this.number_of_transmissions = 0; //the number of node transmissions there were over the entire network
+			this.average_tx_time_undivided = 0; //the running total of time it took each tx to happen. Not yet divided by number_of_transmissions.
+
+			this.packet_travel_success = 0; //the number of times a packet got from node A to node Z through the entire network succesfully
+			this.failed_total_transmissions = 0; //the number of times a packet failed to get from node A to node Z thru entire network.
+
+			//what else we wanna measure:
+			//		maximum_simultaneous_transmissions
+			//		maximum_nodes
+			//		maximum_frame_size
+		}
+		Rsxr.prototype.onCollision = function() {
+			this.collision_count++;
+		}
+		Rsxr.prototype.addBroadcastTime = function(time_) {
+			this.number_of_transmissions++;
+			this.average_tx_time_undivided += time_;
+		}
+		Rsxr.prototype.addHop = function() {
+			this.number_of_hops++;
+		}
+		Rsxr.prototype.addRedundantHop = function() {
+			this.number_of_redundant_hops++;
+		}
+		Rsxr.prototype.update = function() {
+			this.duration++;
+		}
+
+		Researcher = new Rsxr();
+
 		function loadResources() { }
 
 		function setupScene() {
@@ -16,8 +55,8 @@
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
 
-			for( i = 0; i < 64; i++) {
-				node = new Node(Math.random() * (512+256+128), Math.random() * 512);
+			for( i = 0; i < 256; i++) {
+				node = new BatmanNode(Math.random() * (512+256+128), Math.random() * 512);
 				//node = new Node(Math.random() * 128, Math.random() * 128);
 
 				node.broadcast_radius = 32 + (Math.random() * 32);

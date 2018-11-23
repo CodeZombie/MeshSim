@@ -9,6 +9,7 @@ Acid.EntityManager = (function() {
 			entities.push(entity_);
 			entity_.setId(IDIterator);
 			IDIterator++;
+			entity_.onAttachToEntityManager();
 			return IDIterator-1;
 		},
 		

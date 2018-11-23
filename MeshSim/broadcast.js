@@ -19,7 +19,7 @@ Broadcast = function(x_, y_, frame_, radius_) {
     this.radius = radius_;
     this.path = [];
     this.broadcast_id = -1; //the id of this broadcast message, not the entity id.
-    this.duration = this.frame.data.length;
+    this.duration = Math.floor(this.frame.data.length/2);
     this.duration_timer = this.duration;
     this.parent = null;
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));

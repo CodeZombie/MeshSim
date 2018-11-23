@@ -14,6 +14,10 @@ Acid.Entity = function(x_, y_) {
 	this.hovered = false;
 };
 
+Acid.Entity.prototype.onAttachToEntityManager = function() {
+	
+}
+
 Acid.Entity.prototype.setId = function(id_) {
 	this.id = id_;
 }
