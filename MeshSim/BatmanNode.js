@@ -23,7 +23,7 @@ BatmanNode = function(x_, y_) {
     this.wait_time = 0;
     this.tx_counter = 0; //the amount of time it takes between wanting to tx, to actually txing the frame.
 
-    this.announce_timer = 64 + Math.floor(Math.random() * 256);
+    this.announce_timer = 64 + Math.floor(Math.random() * 32);
 
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
 
@@ -49,6 +49,9 @@ BatmanNode.prototype.onAttachToEntityManager = function() {
     //Called when this entity is attached to the entity manager, and therefore, given an ID.
     this.routing_table[this.id] = [];
     this.routing_table[this.id][this.id] = 0; //obviously there is zero distance between this node and itself.
+    if(this.id == 13){
+        this.color = "255, 0, 0"
+    }
     this.prerender();
 
 }
@@ -56,16 +59,40 @@ BatmanNode.prototype.onAttachToEntityManager = function() {
 BatmanNode.prototype.receiveBroadcast = function(broadcast_) {
     if(!this.received_frame_ids.includes(broadcast_.frame.id)) { //if we have never seen this frame before
         if(broadcast_.frame.type == "announcement") {
+            //
             for (foreign_node in broadcast_.frame.distance_table) { //for every foreign node in this distance table
-
                 if(this.routing_table[foreign_node] == undefined){
                     this.routing_table[foreign_node] = [];
                 }
 
                 this.routing_table[foreign_node][broadcast_.frame.root_node] = broadcast_.frame.distance_table[foreign_node] + 1;
             }
-        }
 
+        }else if(broadcast_.frame.type == "data") {
+            if(broadcast_.frame.final_node == this.id){
+                //wow it made it! Congrats.
+                Researcher.onTravelSuccess();
+                console.log("Travel success. Packet recieved by destination node.");
+            }else if(broadcast_.frame.hopping_to == this.id){//if this is the node this was hopping_to:
+                var next_hop = this.getNextHop(broadcast_.frame.final_node); //find the NEXT hop
+                if(next_hop == -1){ 
+                    console.log("Cannot hop from " + this.id + " to " + next_hop + ". No path found.");
+                }else{
+                    //send this new packet
+                    this.addFrameToQueue({
+                        type: "data",
+                        data:  broadcast_.frame.data,
+                        final_node: broadcast_.frame.final_node,
+                        root_node: broadcast_.frame.root_node,
+                        hopped_from: this.id,
+                        hopping_to: next_hop,
+                        color: broadcast_.frame.color
+                    });
+                }
+            }
+        }else if(broadcast_.frame.type == "ACK"){
+
+        }
 
         //this.frames_to_be_broadcast.unshift(broadcast_.frame); //rebroadcast it
         this.received_frame_ids.push(broadcast_.frame.id); //mark this frame as "Seen"
@@ -125,9 +152,11 @@ BatmanNode.prototype.onCollision = function(other_){
 BatmanNode.prototype.update = function() {
     Acid.Entity.prototype.update.call(this);
 
-    if(this.announce_timer <= 0 ) {
-        this.announce();
-        this.announce_timer = 64 + Math.floor(Math.random() * 256);
+    if(Acid.System.getSteps() % 1000 < 256) {
+        if(this.announce_timer <= 0 ) {
+            this.announce();
+            this.announce_timer = 16 + Math.floor(Math.random() *  64);
+        }
     }
     this.announce_timer--;
 
@@ -219,6 +248,7 @@ BatmanNode.prototype.draw = function() {
         Acid.Graphics.drawText(this.x+4, this.y+48, "substat: " + this.substatus, {textAlign: "left", fillStyle: "rgba(0,0,0, .25)", font: "16px Arial"});
         Acid.Graphics.drawText(this.x+4, this.y+64, "ftbb: " + this.frames_to_be_broadcast.length, {textAlign: "left", fillStyle: "rgba(0,0,0, .25)", font: "16px Arial"});
         Acid.Graphics.drawText(this.x+4, this.y+64+16, "annc: " + this.announce_timer, {textAlign: "left", fillStyle: "rgba(0,0,0, .25)", font: "16px Arial"});
+    
 
         Acid.Graphics.drawOnBottom();
         Acid.Graphics.drawCircle(this.x, this.y, this.broadcast_radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"})
@@ -242,6 +272,7 @@ BatmanNode.prototype.announce = function() {
             c: 1 hop
         ]
     */
+
     var distance_table = [];
 
     for(node in this.routing_table) { //for every node in our routing table:
@@ -258,32 +289,73 @@ BatmanNode.prototype.announce = function() {
         distance_table[node] = shortest_distance;
     }
 
-    frame = {
-        type: "announcement",
-        data:  "annc",
-        id: (new Date()).getTime(),
-        destination_node: -1,
-        color: this.color,
+    //first, clear any existing announce frames from the queue.
+    for(frame_index in this.frames_to_be_broadcast) {
+        if(this.frames_to_be_broadcast[frame_index].type == "announcement") {
+            this.frames_to_be_broadcast.splice(frame_index, 1);
+        }
+    }
+
+    this.addFrameToQueue({
+        type: "announcement_request",
+        data:  "an",
+        root_node: this.id,
         distance_table: distance_table,
-        root_node: this.id
-    };
-    this.frames_to_be_broadcast.unshift(frame);
+        color: "0,64,0"
+    });
+}
+
+BatmanNode.prototype.addFrameToQueue = function(frame_) {
+    frame_.from_node = this.id;
+    frame_.id = (new Date()).getTime();
+    
+    if(frame_.final_node == undefined){
+        frame_.final_node = -1;
+    }
+
+    if(frame_.color == undefined){
+        frame_.color = Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString();
+    }
+    if(frame_.root_node == undefined){
+        frame_.root_node == this.id;
+    }
+
+    this.frames_to_be_broadcast.unshift(frame_);
+}
+
+BatmanNode.prototype.getNextHop = function(final_node) {
+    if(this.routing_table[final_node] == undefined) {
+        return -1;
+    }
+    var quickest_route_node = -1;
+    for(neighbor in this.routing_table[final_node]) {
+        if(quickest_route_node == -1){
+            quickest_route_node = neighbor;
+        }else if(this.routing_table[final_node][neighbor] < this.routing_table[final_node][quickest_route_node]) {
+            quickest_route_node = neighbor;
+        }
+    }
+    return quickest_route_node;
 }
 
 BatmanNode.prototype.onMouseDown = function() {
-    /*frame = {
-        type: "plaintext",
-        data: "fuck yo",
-        id: (new Date()).getTime(),
-        destination_node: 13,
-        root_node: this.id,
-        color: Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString()
+    //find the node that will get us to node 13 the quickest:
+    var destination = 13;
+    var next_hop = this.getNextHop(destination);
+    if(next_hop == -1){ 
+        console.log("Cannot hop from " + this.id + " to " + destination + ". No path found.");
+    }else{
+        this.addFrameToQueue({
+            type: "data",
+            data: "LOL FUCK",
+            final_node: destination,
+            root_node: this.id,
+            hopped_from: this.id,
+            hopping_to: next_hop
+        });
     }
-
-    this.frames_to_be_broadcast.unshift(frame);*/
-    console.log(this.routing_table);
 }
 
 BatmanNode.prototype.onMouseMove = function(event_) {
-    //console.log(this.received_frame_ids);
+    console.log(this.routing_table);
 }

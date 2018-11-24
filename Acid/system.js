@@ -3,6 +3,7 @@ var Acid = Acid||{};
 Acid.System = (function() {
 	var initializeFunction;
 	var redrawFunction;
+	var steps = 0;
 	
 	var resourcesNeeded = 0;
 	var resourcesLoaded = 0;
@@ -52,8 +53,12 @@ Acid.System = (function() {
 			resourcesLoaded++;
 		},
 		update : function() {
+			steps++;
 			Acid.EntityManager.update();
 			setTimeout(Acid.System.update, 0);
+		},
+		getSteps : function() {
+			return steps;
 		},
 
 		redraw : function() {

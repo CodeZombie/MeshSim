@@ -23,7 +23,7 @@
 			this.average_tx_time_undivided = 0; //the running total of time it took each tx to happen. Not yet divided by number_of_transmissions.
 
 			this.packet_travel_success = 0; //the number of times a packet got from node A to node Z through the entire network succesfully
-			this.failed_total_transmissions = 0; //the number of times a packet failed to get from node A to node Z thru entire network.
+			this.packet_travel_failure = 0; //the number of times a packet failed to get from node A to node Z thru entire network.
 
 			//what else we wanna measure:
 			//		maximum_simultaneous_transmissions
@@ -46,6 +46,9 @@
 		Rsxr.prototype.update = function() {
 			this.duration++;
 		}
+		Rsxr.prototype.onTravelSuccess = function(){
+			this.packet_travel_success++;
+		}
 
 		Researcher = new Rsxr();
 
@@ -58,7 +61,7 @@
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
 
-			for( i = 0; i < 1024; i++) {
+			for( i = 0; i < 256; i++) {
 				node = new BatmanNode(Math.random() * (512+256+128), Math.random() * 512);
 				//node = new Node(Math.random() * 128, Math.random() * 128);
 
