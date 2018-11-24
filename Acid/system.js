@@ -20,6 +20,7 @@ Acid.System = (function() {
 			if(resourcesLoaded === resourcesNeeded) {
 				initializeFunction();
 				Acid.System.update();
+				Acid.System.redraw();
 				//redraw();
 				
 			}else {
@@ -52,11 +53,13 @@ Acid.System = (function() {
 		},
 		update : function() {
 			Acid.EntityManager.update();
-			redraw();
-			requestAnimationFrame(Acid.System.update);
+			setTimeout(Acid.System.update, 0);
 		},
+
 		redraw : function() {
 			redrawFunction();
+			//setTimeout(Acid.System.redraw, Math.floor(Math.random() * 9999));
+			requestAnimationFrame(Acid.System.redraw);
 		}
 	}
 })();

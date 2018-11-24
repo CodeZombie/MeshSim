@@ -9,6 +9,9 @@
 	<script type="text/javascript" src="MeshSim/batmannode.js"></script>
 
 	<script type="text/javascript">
+
+		draw_timer = 5;
+
 		Rsxr = function() {
 			this.collision_count = 0;
 			this.duration = 0; //the amount of time between sending the packet, and the final destination node reciving it.
@@ -55,7 +58,7 @@
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
 
-			for( i = 0; i < 256; i++) {
+			for( i = 0; i < 1024; i++) {
 				node = new BatmanNode(Math.random() * (512+256+128), Math.random() * 512);
 				//node = new Node(Math.random() * 128, Math.random() * 128);
 

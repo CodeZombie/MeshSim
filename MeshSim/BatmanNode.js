@@ -4,6 +4,8 @@ BatmanNode = function(x_, y_) {
     Acid.Entity.call(this, x_, y_);
 
     this.objectType = "batmannode"
+    this.canvas;
+    this.canvasContext;
 
     this.SHORT_INTERFRAME_SPACE = 9; //1 being the smallest unit of time, in microseconds. 
     this.MAX_BACKOFF_TIME = 16; //the max amount of time the system will wait as a random backoff.
@@ -21,7 +23,7 @@ BatmanNode = function(x_, y_) {
     this.wait_time = 0;
     this.tx_counter = 0; //the amount of time it takes between wanting to tx, to actually txing the frame.
 
-    this.announce_timer = 256 + Math.floor(Math.random() * 512);
+    this.announce_timer = 64 + Math.floor(Math.random() * 256);
 
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
 
@@ -36,6 +38,7 @@ BatmanNode = function(x_, y_) {
             node_2: [ [neighbor_a, distance], [neighbor_b, distance], [neighbor_c, distance]]
         ]
     */
+   
 }
 
 BatmanNode.prototype = Object.create(Acid.Entity.prototype);
@@ -46,6 +49,8 @@ BatmanNode.prototype.onAttachToEntityManager = function() {
     //Called when this entity is attached to the entity manager, and therefore, given an ID.
     this.routing_table[this.id] = [];
     this.routing_table[this.id][this.id] = 0; //obviously there is zero distance between this node and itself.
+    this.prerender();
+
 }
 
 BatmanNode.prototype.receiveBroadcast = function(broadcast_) {
@@ -122,7 +127,7 @@ BatmanNode.prototype.update = function() {
 
     if(this.announce_timer <= 0 ) {
         this.announce();
-        this.announce_timer = 256 + Math.floor(Math.random() * 512);
+        this.announce_timer = 64 + Math.floor(Math.random() * 256);
     }
     this.announce_timer--;
 
@@ -195,6 +200,16 @@ BatmanNode.prototype.update = function() {
     }
 }
 
+BatmanNode.prototype.prerender = function() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width=32;
+    this.canvas.height = 32;
+    this.canvasContext = this.canvas.getContext("2d");
+
+    Acid.Graphics.drawCircleCtx(this.canvasContext, this.radius, this.radius, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
+    Acid.Graphics.drawTextCtx(this.canvasContext, this.radius, this.radius + 4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
+}
+
 BatmanNode.prototype.draw = function() {
     if (this.hovered == true) {
         Acid.Graphics.drawOnTop();
@@ -205,14 +220,16 @@ BatmanNode.prototype.draw = function() {
         Acid.Graphics.drawText(this.x+4, this.y+64, "ftbb: " + this.frames_to_be_broadcast.length, {textAlign: "left", fillStyle: "rgba(0,0,0, .25)", font: "16px Arial"});
         Acid.Graphics.drawText(this.x+4, this.y+64+16, "annc: " + this.announce_timer, {textAlign: "left", fillStyle: "rgba(0,0,0, .25)", font: "16px Arial"});
 
-
         Acid.Graphics.drawOnBottom();
         Acid.Graphics.drawCircle(this.x, this.y, this.broadcast_radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"})
     }
 
-    if(this.collision_counter > 0) {this.collision_counter-=2;}
-    Acid.Graphics.drawCircle(this.x, this.y, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
-    Acid.Graphics.drawText(this.x, this.y+4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
+    Acid.Graphics.drawImage(this.canvas, this.x - this.radius, this.y - this.radius);
+    //Acid.Graphics.drawCircle(this.x, this.y, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
+    //Acid.Graphics.drawText(this.x, this.y+4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
+    
+    
+    
     //Acid.Graphics.drawSquare(this.x, this.y, this.width, this.height, "#F00");
 };
 
@@ -246,6 +263,7 @@ BatmanNode.prototype.announce = function() {
         data:  "annc",
         id: (new Date()).getTime(),
         destination_node: -1,
+        color: this.color,
         distance_table: distance_table,
         root_node: this.id
     };

@@ -297,6 +297,7 @@ Acid.Graphics = (function() {
 				return;
 			}
 			canvas = canvas_;
+			
 			canvasContext = canvas.getContext("2d");
 			Acid.Mouse.initialize(canvas); //attach the canvas to to the mouse
 		},
@@ -381,6 +382,50 @@ Acid.Graphics = (function() {
 			}		
 		},
 
+		setStyleCtx : function(ctx_, style_){
+			if(style_.lineWidth != null) {
+				ctx_.lineWidth = style_.lineWidth;
+			}else{
+				ctx_.lineWidth = 1;
+			}
+
+			if(style_.textAlign != null) {
+				ctx_.textAlign = style_.textAlign;
+			}else{
+				ctx_.textAlign = "start";
+			}
+
+			if(style_.font != null) {
+				ctx_.font = style_.font;
+			}else{
+				ctx_.font = "12px Arial";
+			}
+		
+			if(style_.fillStyle != null) {
+				ctx_.fillStyle = style_.fillStyle;
+			}else {
+				ctx_.fillStyle = "#0F0";
+			}
+		
+			if(style_.strokeStyle != null) {
+				ctx_.strokeStyle = style_.strokeStyle;
+			}else {
+				ctx_.strokeStyle = "#0F0";
+			}
+		
+			if(style_.lineCap != null) {
+				ctx_.lineCap = style_.lineCap;
+			}else {
+				ctx_.lineCap = "butt"; //or "round" or "square"
+			}
+			
+			if(style_.lineDash != null) {
+				ctx_.lineDash = style_.lineDash;
+			}else {
+				ctx_.lineDash = []; //empty array = no dashing. For dashes, use [n,m] where n = width of dash, and m is distance beteen dashes
+			}		
+		},
+
 		drawCircle : function(x_, y_, radius_, style_) {
 			canvasContext.beginPath();
 			Acid.Graphics.setStyle(style_);
@@ -389,11 +434,27 @@ Acid.Graphics = (function() {
 			return;
 		},
 
+		drawCircleCtx : function(ctx_, x_, y_, radius_, style_) {
+			ctx_.beginPath();
+			Acid.Graphics.setStyleCtx(ctx_, style_);
+			ctx_.arc(x_*scale,y_*scale,radius_*scale,0,2*Math.PI);
+			ctx_.stroke();
+			return;
+		},
+
 		drawFilledCircle: function(x_, y_, radius_, style_) {
 			canvasContext.beginPath();
 			Acid.Graphics.setStyle(style_);
 			canvasContext.arc(x_*scale,y_*scale,radius_*scale,0,2*Math.PI);
 			canvasContext.fill();
+			return;
+		},
+
+		drawFilledCircleCtx: function(ctx_, x_, y_, radius_, style_) {
+			ctx_.beginPath();
+			Acid.Graphics.setStyleCtx(ctx_, style_);
+			ctx_.arc(x_*scale,y_*scale,radius_*scale,0,2*Math.PI);
+			ctx_.fill();
 			return;
 		},
 		
@@ -415,6 +476,15 @@ Acid.Graphics = (function() {
 		drawText : function(x_, y_, text_, style_) {
 			Acid.Graphics.setStyle(style_);
 			canvasContext.fillText(text_, x_, y_);
+		},
+
+		drawTextCtx : function(ctx_, x_, y_, text_, style_) {
+			Acid.Graphics.setStyleCtx(ctx_, style_);
+			ctx_.fillText(text_, x_, y_);
+		},
+		
+		drawImage(image_, x_, y_){
+			canvasContext.drawImage(image_, x_, y_);
 		}
 	}
 })();
@@ -664,6 +734,7 @@ Acid.System = (function() {
 			if(resourcesLoaded === resourcesNeeded) {
 				initializeFunction();
 				Acid.System.update();
+				Acid.System.redraw();
 				//redraw();
 				
 			}else {
@@ -696,11 +767,13 @@ Acid.System = (function() {
 		},
 		update : function() {
 			Acid.EntityManager.update();
-			redraw();
-			requestAnimationFrame(Acid.System.update);
+			setTimeout(Acid.System.update, 0);
 		},
+
 		redraw : function() {
 			redrawFunction();
+			//setTimeout(Acid.System.redraw, Math.floor(Math.random() * 9999));
+			requestAnimationFrame(Acid.System.redraw);
 		}
 	}
 })();

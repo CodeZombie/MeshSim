@@ -2,6 +2,7 @@ Broadcast = function(x_, y_, frame_, radius_) {
     Acid.Entity.call(this, x_, y_);
     this.objectType = "broadcast"
     this.frame = frame_;
+    this.canvas;
     /*
         DATA PACKET
         packet.id: the ID of this packet. This ID doesnt change across the network.
@@ -24,6 +25,7 @@ Broadcast = function(x_, y_, frame_, radius_) {
     this.parent = null;
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
     //this.setBoundingBox(new Acid.Rectangle({width: this.width, height: this.height}));
+    this.prerender();
 }
 
 Broadcast.prototype = Object.create(Acid.Entity.prototype);
@@ -40,7 +42,18 @@ Broadcast.prototype.update = function() {
     this.duration_timer--;
 }
 
+Broadcast.prototype.prerender = function() {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width= this.radius * 2;
+    this.canvas.height = this.radius * 2;
+    var canvasContext = this.canvas.getContext("2d");
+
+    Acid.Graphics.drawFilledCircleCtx(canvasContext, this.radius, this.radius, this.radius, {lineWidth: 2, fillStyle: "rgba(" + this.frame.color + ", " + (this.duration_timer / this.duration) + ")"});
+}
+
 Broadcast.prototype.draw = function() {
-    Acid.Graphics.drawFilledCircle(this.x, this.y, this.radius, {lineWidth: 2, fillStyle: "rgba(" + this.frame.color + ", " + (this.duration_timer / this.duration) + ")"});
-    Acid.Graphics.drawText(this.x, this.y+ this.radius, this.id, {font: "8px Arial", fillStyle: "#0f0"})
+    Acid.Graphics.drawOnTop();
+    Acid.Graphics.drawImage(this.canvas, this.x - this.radius, this.y - this.radius);
+    Acid.Graphics.drawOnBottom();
+
 };
