@@ -7,6 +7,8 @@
 	<script type="text/javascript" src="MeshSim/broadcast.js"></script>
 	<script type="text/javascript" src="MeshSim/node.js"></script>
 	<script type="text/javascript" src="MeshSim/batmannode.js"></script>
+	<script type="text/javascript" src="MeshSim/floodnode.js"></script>
+
 
 	<script type="text/javascript">
 
@@ -61,8 +63,8 @@
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
 
-			for( i = 0; i < 256; i++) {
-				node = new BatmanNode(Math.random() * (512+256+128), Math.random() * 512);
+			for( i = 0; i < 128; i++) {
+				node = new FloodNode(Math.random() * (512+256+128), Math.random() * 512);
 				//node = new Node(Math.random() * 128, Math.random() * 128);
 
 				node.broadcast_radius = 32 + (Math.random() * 32);
@@ -89,7 +91,7 @@
 		<div class="row">
 			<div class="column">
 				<pre>
-Destination: <input type="text" name="destination_id" value="12"><br/>
+Destination: <input id="destination_id" type="text" name="destination_id" value="12"><br/>
 Message:     <input type="text" name="message" value="Hello World" >
 			</pre>
 			</div>

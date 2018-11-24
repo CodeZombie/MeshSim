@@ -10,6 +10,7 @@ BatmanNode = function(x_, y_) {
     this.SHORT_INTERFRAME_SPACE = 9; //1 being the smallest unit of time, in microseconds. 
     this.MAX_BACKOFF_TIME = 16; //the max amount of time the system will wait as a random backoff.
     this.DCF_INTERFRAME_SPACE = 16; //the amount of time to be waited during the physical carrier sense right before transmission.
+    this.ACK_WAIT_TIME = 64;
 
     this.radius = 8; //physical radius of the node
     this.broadcast_radius = 64; //the distance this node can broadcast
@@ -17,11 +18,14 @@ BatmanNode = function(x_, y_) {
     this.status = "idle";  //current state of the node                        
     this.substatus = "idle";//substatus of this node.
 
+    this.frame_waiting_to_be_acknowledged = null; // holds the frame waiting to be ack'd, if one needs to be ack'd.
+    this.ack_timer = 0;
+
     this.received_frame_ids = [];          //the IDs of packets that were succesfully receivedu
     this.broadcast_being_received = null;   //holds the current broadcast that is being received. null when not receiving anything.
     this.frames_to_be_broadcast = [];      //the frames that we want to broadcast
-    this.wait_time = 0;
-    this.tx_counter = 0; //the amount of time it takes between wanting to tx, to actually txing the frame.
+    this.wait_time = 0;                     //the wait timer. 
+    this.tx_counter = 0;                    //the amount of time it takes between wanting to tx, to actually txing the frame.
 
     this.announce_timer = 64 + Math.floor(Math.random() * 32);
 
@@ -53,52 +57,80 @@ BatmanNode.prototype.onAttachToEntityManager = function() {
         this.color = "255, 0, 0"
     }
     this.prerender();
+}
 
+BatmanNode.prototype.transmitRoutingTable = function(dest_) {
+    var distance_table = [];
+
+    for(node in this.routing_table) { //for every node in our routing table:
+        shortest_distance = -1;
+        for(neighbor_node in this.routing_table[node]) { //for every neighbor_node 
+            if(shortest_distance == -1) {
+                shortest_distance = this.routing_table[node][neighbor_node] //the distance from neighbor_node to node
+            }else{
+                if(this.routing_table[node][neighbor_node] < shortest_distance) {
+                    shortest_distance = this.routing_table[node][neighbor_node];
+                }
+            }
+        }
+        distance_table[node] = shortest_distance;
+    }
+
+    this.addFrameToQueue({
+        type: "RTR_ACK", //routing table request ack
+        requires_ack: true,
+        data:  "a",
+        root_node: this.id,
+        final_node: dest_,
+        distance_table: distance_table,
+        color: "0,64,0"
+    }, "LOW");
 }
 
 BatmanNode.prototype.receiveBroadcast = function(broadcast_) {
-    if(!this.received_frame_ids.includes(broadcast_.frame.id)) { //if we have never seen this frame before
-        if(broadcast_.frame.type == "announcement") {
-            //
-            for (foreign_node in broadcast_.frame.distance_table) { //for every foreign node in this distance table
-                if(this.routing_table[foreign_node] == undefined){
-                    this.routing_table[foreign_node] = [];
+    if(broadcast_.frame.final_node == this.id || broadcast_.frame.hopping_to == this.id || broadcast_.frame.final_node == -1 || broadcast_.frame.hopping_to == -1) {
+        if(!this.received_frame_ids.includes(broadcast_.frame.id)) { //if we have never seen this frame before
+            if(broadcast_.frame.type == "ROUTING_TABLE_REQUEST") {
+                //send an ACK with my distance_table info.
+                //Keep sending said frame until we recieve a final ACK back. Three way handshake.
+                //time out after 3 failed attempts.
+                this.transmitRoutingTable(broadcast_.frame.root_node);
+            }else if(broadcast_.frame.type == "ACK"){
+                if(broadcast_.frame.response_to_frame == this.last_frame_broadcast.id) {
+                    this.waiting_for_ack = false;
                 }
-
-                this.routing_table[foreign_node][broadcast_.frame.root_node] = broadcast_.frame.distance_table[foreign_node] + 1;
+            }else if(broadcast_.frame.type == "data") {
+                if(broadcast_.frame.final_node == this.id){
+                    //wow it made it! Congrats.
+                    Researcher.onTravelSuccess();
+                    console.log("Travel success. Packet recieved by destination node.");
+                }else if(broadcast_.frame.hopping_to == this.id){//if this is the node this was hopping_to:
+                    var next_hop = this.getNextHop(broadcast_.frame.final_node); //find the NEXT hop
+                    if(next_hop == -1){ 
+                        console.log("Cannot hop from " + this.id + " to " + next_hop + ". No path found.");
+                    }else{
+                        //send this new packet
+                        this.addFrameToQueue({
+                            type: "data",
+                            data:  broadcast_.frame.data,
+                            final_node: broadcast_.frame.final_node,
+                            root_node: broadcast_.frame.root_node,
+                            hopped_from: this.id,
+                            hopping_to: next_hop,
+                            color: broadcast_.frame.color
+                        }, "LOW");
+                    }
+                }
+            }else if(broadcast_.frame.type == "ACK"){
+                //if(broadcast_.frame.)
             }
 
-        }else if(broadcast_.frame.type == "data") {
-            if(broadcast_.frame.final_node == this.id){
-                //wow it made it! Congrats.
-                Researcher.onTravelSuccess();
-                console.log("Travel success. Packet recieved by destination node.");
-            }else if(broadcast_.frame.hopping_to == this.id){//if this is the node this was hopping_to:
-                var next_hop = this.getNextHop(broadcast_.frame.final_node); //find the NEXT hop
-                if(next_hop == -1){ 
-                    console.log("Cannot hop from " + this.id + " to " + next_hop + ". No path found.");
-                }else{
-                    //send this new packet
-                    this.addFrameToQueue({
-                        type: "data",
-                        data:  broadcast_.frame.data,
-                        final_node: broadcast_.frame.final_node,
-                        root_node: broadcast_.frame.root_node,
-                        hopped_from: this.id,
-                        hopping_to: next_hop,
-                        color: broadcast_.frame.color
-                    });
-                }
-            }
-        }else if(broadcast_.frame.type == "ACK"){
-
+            //this.frames_to_be_broadcast.unshift(broadcast_.frame); //rebroadcast it
+            this.received_frame_ids.push(broadcast_.frame.id); //mark this frame as "Seen"
+            Researcher.addHop();
+        }else{
+            Researcher.addRedundantHop();
         }
-
-        //this.frames_to_be_broadcast.unshift(broadcast_.frame); //rebroadcast it
-        this.received_frame_ids.push(broadcast_.frame.id); //mark this frame as "Seen"
-        Researcher.addHop();
-    }else{
-        Researcher.addRedundantHop();
     }
 
     this.broadcast_being_received = null;
@@ -106,6 +138,13 @@ BatmanNode.prototype.receiveBroadcast = function(broadcast_) {
 
 //broadcasts a packet.
 BatmanNode.prototype.broadcastFrame = function(frame_) {
+    if(frame_.requires_ack) {
+        this.last_frame_broadcast = frame_; 
+        this.last_frame_broadcast.id =  (new Date()).getTime();
+        this.waiting_for_ack = true;
+        this.ack_timer = this.ACK_WAIT_TIME;
+        //we change the frame ID so it doesn't get rejected by the hopping_to node if it needs to be tx again.
+    }
     this.color = frame_.color;
     frame_.from = this.id;
 
@@ -152,6 +191,16 @@ BatmanNode.prototype.onCollision = function(other_){
 BatmanNode.prototype.update = function() {
     Acid.Entity.prototype.update.call(this);
 
+    if(this.waiting_for_ack == true) {
+        this.ack_timer--;
+        if(this.ack_timer <= 0){
+            //rebroadcast the frame, ignoring the queue:
+            this.addFrameToQueue(this.last_frame_broadcast, "HIGH");
+            this.waiting_for_ack = false;
+            this.status = "idle";
+        }
+    }
+
     if(Acid.System.getSteps() % 1000 < 256) {
         if(this.announce_timer <= 0 ) {
             this.announce();
@@ -168,10 +217,12 @@ BatmanNode.prototype.update = function() {
         }
     }
 
-    if(this.status == "idle"){
-        if(this.frames_to_be_broadcast.length > 0) {
-            this.status = "broadcasting";
-            this.substatus = "nav_countdown";
+    if(!this.waiting_for_ack) {
+        if(this.status == "idle"){
+            if(this.frames_to_be_broadcast.length > 0) {
+                this.status = "broadcasting";
+                this.substatus = "nav_countdown";
+            }
         }
     }
 
@@ -264,14 +315,22 @@ BatmanNode.prototype.draw = function() {
 };
 
 BatmanNode.prototype.announce = function() {
-    //the distance table will contain only this node's min distance from every other connected node.
-    /*
-        distance_table = [
-            a: 3 hops
-            b: 4 hops
-            c: 1 hop
-        ]
-    */
+    //will send a frame to every surrounding node asking for routing table info.
+    //No nodes should derive any info from this, because we need to ensure TWO WAY COMMUNICATION is possible to consider nodes neighbors.
+    //Data can only be added to the routing_table on ACK FRAMES!!!!!
+
+    this.addFrameToQueue({
+        type: "ROUTING_TABLE_REQUEST",
+        requires_ack: true,
+        data:  "a",
+        root_node: this.id,
+        color: "0,64,0"
+    }, "LOW");
+
+}
+/*
+BatmanNode.prototype.announce = function() {
+
 
     var distance_table = [];
 
@@ -289,23 +348,23 @@ BatmanNode.prototype.announce = function() {
         distance_table[node] = shortest_distance;
     }
 
-    //first, clear any existing announce frames from the queue.
+    //first, clear any existing announce frames from the queue. We only ever need to send one at a time. Having multiple in the queue is a waste.
     for(frame_index in this.frames_to_be_broadcast) {
-        if(this.frames_to_be_broadcast[frame_index].type == "announcement") {
+        if(this.frames_to_be_broadcast[frame_index].type == "announcement_request") {
             this.frames_to_be_broadcast.splice(frame_index, 1);
         }
     }
 
     this.addFrameToQueue({
         type: "announcement_request",
-        data:  "an",
+        data:  "a",
         root_node: this.id,
-        distance_table: distance_table,
+        //distance_table: distance_table,
         color: "0,64,0"
     });
-}
+}*/
 
-BatmanNode.prototype.addFrameToQueue = function(frame_) {
+BatmanNode.prototype.addFrameToQueue = function(frame_, priority_) {
     frame_.from_node = this.id;
     frame_.id = (new Date()).getTime();
     
@@ -320,7 +379,11 @@ BatmanNode.prototype.addFrameToQueue = function(frame_) {
         frame_.root_node == this.id;
     }
 
-    this.frames_to_be_broadcast.unshift(frame_);
+    if(priority_ == "LOW") {
+        this.frames_to_be_broadcast.unshift(frame_);
+    }else{
+        this.frames_to_be_broadcast.push(frame_);
+    }
 }
 
 BatmanNode.prototype.getNextHop = function(final_node) {
@@ -352,7 +415,7 @@ BatmanNode.prototype.onMouseDown = function() {
             root_node: this.id,
             hopped_from: this.id,
             hopping_to: next_hop
-        });
+        }, "LOW");
     }
 }
 

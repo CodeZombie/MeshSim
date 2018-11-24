@@ -20,7 +20,7 @@ Broadcast = function(x_, y_, frame_, radius_) {
     this.radius = radius_;
     this.path = [];
     this.broadcast_id = -1; //the id of this broadcast message, not the entity id.
-    this.duration = Math.floor(this.frame.data.length/2);
+    this.duration = this.frame.duration;//Math.floor(this.frame.data.length/2);
     this.duration_timer = this.duration;
     this.parent = null;
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
@@ -49,6 +49,7 @@ Broadcast.prototype.prerender = function() {
     var canvasContext = this.canvas.getContext("2d");
 
     Acid.Graphics.drawFilledCircleCtx(canvasContext, this.radius, this.radius, this.radius, {lineWidth: 2, fillStyle: "rgba(" + this.frame.color + ", " + (this.duration_timer / this.duration) + ")"});
+    Acid.Graphics.drawTextCtx(canvasContext, this.radius, this.radius + 4, this.frame.id, {textAlign: "center", fillStyle: "rgb(0,0,0)", font: "12px Arial"});
 }
 
 Broadcast.prototype.draw = function() {
