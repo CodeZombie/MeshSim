@@ -63,18 +63,35 @@
 			//Acid.Graphics.disableInterpolation();
 			Acid.Graphics.setScale(1);
 
+
 			for( i = 0; i < 128; i++) {
-				node = new FloodNode(Math.random() * (512+256+128), Math.random() * 512);
+				node = new BatmanNode(Math.random() * (512), Math.random() * 512);
 				//node = new Node(Math.random() * 128, Math.random() * 128);
 
 				node.broadcast_radius = 32 + (Math.random() * 32);
 				Acid.EntityManager.addEntity(node);
 			}
+			/*
+
+			var node = new BatmanNode(32, 32);
+			Acid.EntityManager.addEntity(node);
+			var node = new BatmanNode(96, 32);
+			Acid.EntityManager.addEntity(node);
+			var node = new BatmanNode(128, 32);
+			Acid.EntityManager.addEntity(node);
+			var node = new BatmanNode(128+64, 32);
+			Acid.EntityManager.addEntity(node);
+			var node = new BatmanNode(256, 32);
+			Acid.EntityManager.addEntity(node);*/
+
+
 		}
 		
 		function redraw() {
-			Acid.Graphics.clear();
-			Acid.EntityManager.draw();
+			//if(Acid.System.getSteps() > 10000) {
+				Acid.Graphics.clear();
+				Acid.EntityManager.draw();
+			//}
 		}
 
 	</script>

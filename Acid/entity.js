@@ -3,8 +3,8 @@ var Acid = Acid||{};
 Acid.Entity = function(x_, y_) {
 	this.objectType = "entity";
 	this.id = -1; //if this stays -1, either entityManager has fucked up, or the entity was not attached to the entitymanager
-	this.x = x_;
-	this.y = y_;
+	this.setX(x_);
+	this.setY(y_);
 	this.clickable = true;
 	this.hoverable = true;
 	this.spriteSheet;
@@ -13,6 +13,21 @@ Acid.Entity = function(x_, y_) {
 	this.boundingBox;
 	this.hovered = false;
 };
+
+Acid.Entity.prototype.setX = function(x_) {
+	this.x = x_; //dubdivide into different areas. OKSSSS
+	this.updateSubdivision();
+}
+
+Acid.Entity.prototype.setY = function(y_) {
+	this.y = y_;
+	this.updateSubdivision();
+}
+
+Acid.Entity.prototype.updateSubdivision = function() {
+	//call entity manager
+}
+
 
 Acid.Entity.prototype.onAttachToEntityManager = function() {
 	

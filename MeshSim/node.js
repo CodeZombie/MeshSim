@@ -26,17 +26,31 @@ Node = function(x_, y_) {
 
     this.frame_being_broadcast = null;
 
+    this.local_canvas = document.createElement('canvas');
+    this.local_canvas.width=this.radius*2;
+    this.local_canvas.height = this.radius*2;
+
     this.setBoundingBox(new Acid.Circle({radius: this.radius}));
 }
 
 Node.prototype = Object.create(Acid.Entity.prototype);
 Node.prototype.constructor = Node;
 
+Node.prototype.onAttachToEntityManager = function() {
+    //anything that requires the ID on startup will need to go here, because the entity only gets its ID immediately after the constructor is called.
+    this.prerender();
+}
+
 Node.prototype.waitingForACK  = function() {
     if(this.frame_waiting_to_be_acknowledged == null) {
         return false;
     }
     return true;
+}
+
+Node.prototype.setColor = function(color_) {
+    this.color = color_;
+    this.prerender();
 }
 
 Node.prototype.cancelWaitForACK = function() {
@@ -56,29 +70,33 @@ Node.prototype.frameHasBeenReceivedBefore = function(frame_) {
 }
 
 Node.prototype.addFrameToQueue = function(frame_, priority_) {
-    frame_.from_node = this.id; //obviously the frame came from this Node.
+    frame_.hopped_from = this.id; //obviously the frame came from this Node.
     //frame_.id = (new Date()).getTime(); //generate a new ID for the frame.
     
-    if(frame_.duration == undefined) {
-        if(frame_.data == undefined) {
-            frame_.duration = 8;
+    if(frame_.id === undefined) {
+        frame_.id = (new Date()).getTime();
+    }
+
+    if(frame_.duration === undefined) {
+        if(frame_.data === undefined) {
+            frame_.duration = 1;
         }else{
-            frame_.duration = frame.data.length;
+            frame_.duration = frame_.data.length;
         }
     }
 
-    if(frame_.requires_ack == undefined) {
+    if(frame_.requires_ack === undefined) {
         frame_.requires_ack = false;
     }
 
-    if(frame_.final_node == undefined){
+    if(frame_.final_node === undefined){
         frame_.final_node = -1; //-1 means there is no specific destination, aka for everyone.
     }
 
-    if(frame_.color == undefined){
+    if(frame_.color === undefined){
         frame_.color = Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString();
     }
-    if(frame_.root_node == undefined){
+    if(frame_.root_node === undefined){
         frame_.root_node == this.id; //if the root node is not specified, assume it is this node.
     }
 
@@ -89,9 +107,19 @@ Node.prototype.addFrameToQueue = function(frame_, priority_) {
     }
 }
 
+Node.prototype.onReadFrame = function(frame_) {
+    //all non-ack frames will be read here.
+}
+
+Node.prototype.onReceiveACK = function(frame_) {
+
+}
+
+
 Node.prototype.receiveFrame = function(frame_) {
     //only recieve broadcasts if their frames are meant for this node, or global (-1)
     if(frame_.final_node == -1 || frame_.final_node == this.id || frame_.hopping_to == -1 || frame_.hopping_to == this.id) {
+
         if(frame_.requires_ack) { //if the frame requires an ACK
             //send an ack:
             this.addFrameToQueue({
@@ -101,21 +129,21 @@ Node.prototype.receiveFrame = function(frame_) {
                 final_node: frame_.hopped_from,
                 color: "0, 0, 255"
             }, "HIGH");
-        }
-    
+        } 
+
         if(frame_.type == "ACK" && this.frame_waiting_to_be_acknowledged != null){
             if(this.frame_waiting_to_be_acknowledged.id == frame_.acknowledging_id) {
-                console.log("Great, we recieved the ACK")
+                this.onReceiveACK(frame_);
                 this.cancelWaitForACK();
+                //do not pass onReadFrame() ACK frames.
             }
         }
-    
-
-        //TO HERE SHOULD BE PUT IN THE FLOODNODE OBJECT.
+        if(frame_.type != "ACK") {
+            this.onReadFrame(frame_); //Pass this all frames but ACK frames.
+        }
     }
 
     this.markFrameAsSeen(frame_);
-    this.broadcast_being_received = null;
 }
 
 //broadcasts a FRAME
@@ -142,8 +170,13 @@ Node.prototype.onCollision = function(other_){
             if(this.status == "broadcasting" && this.substatus == "transmit_countdown") {
                 return; //this system is half-duplex. Nothing can recieve while transmitting.
             }
+            //if we have seen this bx before, it sets bx_being_rx'd to high.
+
             if(this.broadcast_being_received != null) { //if there is already a broadcast being received
                 if(this.broadcast_being_received.id != other_.id) { //and the broadcast being received is not this one..
+                    if(Acid.System.getSteps() > 10000) {
+                        console.log("NODE: " + this.id + " Has had packet collision.");
+                    }
                     this.status = "frame_collision";
                     this.substatus = "nav_countdown";
                     this.wait_time = this.DCF_INTERFRAME_SPACE; //set the nav timer to a DIFS.
@@ -152,7 +185,7 @@ Node.prototype.onCollision = function(other_){
             }else{
                 this.status = "receiving";
                 this.substatus = "nav_countdown";
-                this.wait_time = other_.duration;
+                this.wait_time = other_.frame.duration;
                 this.broadcast_being_received = other_;
             }
         }
@@ -170,6 +203,7 @@ Node.prototype.update = function() {
                 this.rebroadcast_count++;
                 var frame = this.frame_waiting_to_be_acknowledged;
                 frame.id = (new Date()).getTime(); //give it a new ID.
+                //console.log(frame.id);
                 this.addFrameToQueue(frame, "HIGH"); //make it a new high priority one.
                 this.frame_waiting_to_be_acknowledged = null; //set this to null so waitingForAck() returns false, so the frame can be broadcast properly.
             }else{
@@ -191,7 +225,10 @@ Node.prototype.update = function() {
         if(this.substatus == "nav_countdown") {
             this.wait_time--;
             if(this.wait_time <= 0 && this.broadcast_being_received != null) {
-                this.receiveFrame(this.broadcast_being_received.frame);
+                if(!this.frameHasBeenReceivedBefore(this.broadcast_being_received.frame)) {
+                    this.receiveFrame(this.broadcast_being_received.frame);
+                }
+                this.broadcast_being_received = null;
                 this.status = "idle";
                 this.substatus = "idle";
             }
@@ -252,6 +289,13 @@ Node.prototype.update = function() {
     }
 }
 
+Node.prototype.prerender = function() {
+    var context = this.local_canvas.getContext("2d");
+
+    Acid.Graphics.drawCircleCtx(context, this.radius, this.radius, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
+    Acid.Graphics.drawTextCtx(context, this.radius, this.radius + 4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
+}
+
 Node.prototype.draw = function() {
     if (this.hovered == true) {
         Acid.Graphics.drawOnTop();
@@ -268,10 +312,10 @@ Node.prototype.draw = function() {
         Acid.Graphics.drawCircle(this.x, this.y, this.broadcast_radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"})
     }
 
-    if(this.collision_counter > 0) {this.collision_counter-=2;}
-    Acid.Graphics.drawCircle(this.x, this.y, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
-    Acid.Graphics.drawText(this.x, this.y+4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
-    //Acid.Graphics.drawSquare(this.x, this.y, this.width, this.height, "#F00");
+    Acid.Graphics.drawImage(this.local_canvas, this.x - this.radius, this.y - this.radius);
+
+    //Acid.Graphics.drawCircle(this.x, this.y, this.radius, {lineWidth: 1, strokeStyle: "rgb(" + this.color + ")"});
+    //Acid.Graphics.drawText(this.x, this.y+4, this.id, {textAlign: "center", fillStyle: "rgb(" + this.color + ")", font: "8px Arial"});
 };
 
 Node.prototype.onMouseDown = function() {
@@ -286,7 +330,6 @@ Node.prototype.onMouseDown = function() {
         root_node: this.id,
         color: Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString() + "," + Math.floor(Math.random()*255).toString()
     }
-    console.log(dest);
     this.addFrameToQueue(frame, "LOW");
 }
 

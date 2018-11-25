@@ -49,7 +49,7 @@ Broadcast.prototype.prerender = function() {
     var canvasContext = this.canvas.getContext("2d");
 
     Acid.Graphics.drawFilledCircleCtx(canvasContext, this.radius, this.radius, this.radius, {lineWidth: 2, fillStyle: "rgba(" + this.frame.color + ", " + (this.duration_timer / this.duration) + ")"});
-    Acid.Graphics.drawTextCtx(canvasContext, this.radius, this.radius + 4, this.frame.id, {textAlign: "center", fillStyle: "rgb(0,0,0)", font: "12px Arial"});
+    Acid.Graphics.drawTextCtx(canvasContext, this.radius, this.radius + 4, this.frame.hopping_to, {textAlign: "center", fillStyle: "rgb(0,0,0)", font: "19px Arial"});
 }
 
 Broadcast.prototype.draw = function() {

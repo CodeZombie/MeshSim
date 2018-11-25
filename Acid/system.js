@@ -55,7 +55,17 @@ Acid.System = (function() {
 		update : function() {
 			steps++;
 			Acid.EntityManager.update();
-			setTimeout(Acid.System.update, 0);
+			if(Acid.System.getSteps() < 10000) {
+				if(steps % 32 == 0) {
+					setTimeout(Acid.System.update, 0);
+				}else{
+					Acid.System.update();
+				}
+			}else{
+				setTimeout(Acid.System.update, 0);
+			}
+
+			
 		},
 		getSteps : function() {
 			return steps;
